@@ -18,7 +18,12 @@ function usage {
 
 function checkParams {
 	command -v badblocks >/dev/null 2>&1 || { echo >&2 "badblocks is required. Install the package e2fsprogs. Aborting."; exit 1; }
-	
+
+	if [ "$EUID" -ne 0 ]
+  	then echo "Raw disk access requires root. Re-run with sudo."
+  		exit 1
+	fi	
+
 	if [ $# -ne 1 ]; then
 		echo "You must pass exactly one argument."
 		exit 1
@@ -35,27 +40,79 @@ function checkParams {
 		usage
 		exit 1;
 	fi
-	
+}
+
+function checkSafe {
 	if grep -sq "$1" /proc/mounts; then
 		echo "Error, you have mounted partitions on $1:"
 		echo -e "\t" $(grep -o "$1\w*" /proc/mounts)
 		usage
 		exit 1;
 	fi
-}
 
-function checkSafe {
 	echo "******************************** WARNING ********************************"
 	echo "THIS TEST WILL DESTROY ALL DATA ON $1! ONLY RUN THIS ON EMPTY DEVICES"
-	echo "IF YOU ARE ABSOLUTELY SURE $1 HAS NOTHING YOU WANT ON IT, TYPE \"please destroy $1\""
+	echo "IF YOU ARE ABSOLUTELY SURE $1 HAS NOTHING YOU WANT ON IT, TYPE \"please destroy all data on $1\""
 	read answer
-	if [ "$answer" != "please destroy $1" ]; then
+	if [ "$answer" != "please destroy all data on $1" ]; then
 		echo "Aborting."
 		exit 1
 	fi
 }
 
+function randomTest {
+	# $1 disk, #2 offset in MiB, #3 size in MiB
+	echo "writing $3""MiB of random data to $1 with a random offset of $2""MiB..."
+	randomFileSuffix=$(hexdump -n 16 -e '4/4 "%08X"' /dev/random)
+	tmpFileName="/tmp/fakeblocks-$randomFileSuffix"
+	dd status=none if=/dev/urandom count=1 bs=1M | tee >(dd status=none of="$tmpFileName") | dd status=none bs=1M seek="$2" of="$1"
+	# save only 1MiB of the random data to avoid filling up /tmp
+	# still write the rest of the data to exhaust fake storage's limited cache
+	dd status=none if=/dev/urandom count=$(( $3 - 1 )) bs=1M seek=$(( $2 + 1 )) of="$1"
+	echo "write complete"
+	echo "checking the random data on the device is what we wrote..."
+	cmp -s -i "$2""M:0" "$1" "$tmpFileName" -n 1M
+	if [ $? -ne 0 ]; then
+		fail
+	fi
+	echo "test successful, continuing"
+}
+
+function bufferTest {
+	echo "not yet implemented"
+}
+
+function iterateTest {
+	diskSize=$(blockdev --getsize64 "$1")
+	MiB=$(($diskSize/1024/1024))
+	GiB=$(($diskSize/1024/1024/1024))
+	if [ $GiB -ne 0 ]; then
+		echo "Your disk reports itself as $GiB""GiB"
+	elif [ $MiB -ne 0 ]; then
+		echo "Your disk reports itself as $MiB""MiB"
+	fi
+	testSizeMiB=1
+	while [ $testSizeMiB -le $(( $MiB / 10 )) ]; do
+		randomStartPos=$(( $RANDOM % $(( $MiB - $testSizeMiB )) ))
+		randomTest "$1" $randomStartPos $testSizeMiB
+		testSizeMiB=$(( $testSizeMiB * 10 ))
+	done
+}
+
+function fail {
+	#TODO: delete /tmp/fakeblock-test-data on any exit, including signals
+	echo "Comparison failed. This device has bad blocks :("
+	echo "Go get yourself a refund and leave some bad feedback."
+	exit 1
+}
+
 checkParams "$@"
 checkSafe "$1"
-echo "starting test..."
-
+iterateTest "$1"
+echo "Your disk doesn't look fake. Calling badblocks to verify every bit of the drive. This will take a long time."
+badblocks -swv "$1"
+if [ $? -ne 0 ]; then
+	fail
+fi
+echo "Your disk is valid and safe to use. You must now add a partition table and a filesystems to use it."
+exit 0
