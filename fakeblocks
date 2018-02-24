@@ -1,0 +1,61 @@
+#!/bin/bash
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+function usage {
+	echo "usage: fakeblocs /dev/<device>"
+}
+
+function checkParams {
+	command -v badblocks >/dev/null 2>&1 || { echo >&2 "badblocks is required. Install the package e2fsprogs. Aborting."; exit 1; }
+	
+	if [ $# -ne 1 ]; then
+		echo "You must pass exactly one argument."
+		exit 1
+	fi
+	
+	if [ ! -e "$1" ]; then
+		echo "$1 does not exist. Make sure you are using an absolute path."
+		usage
+		exit 1;
+	fi
+	
+	if [ ! -b "$1" ]; then
+		echo "$1 exists, but is not a block device, like a USB drive or SD card."
+		usage
+		exit 1;
+	fi
+	
+	if grep -sq "$1" /proc/mounts; then
+		echo "Error, you have mounted partitions on $1:"
+		echo -e "\t" $(grep -o "$1\w*" /proc/mounts)
+		usage
+		exit 1;
+	fi
+}
+
+function checkSafe {
+	echo "******************************** WARNING ********************************"
+	echo "THIS TEST WILL DESTROY ALL DATA ON $1! ONLY RUN THIS ON EMPTY DEVICES"
+	echo "IF YOU ARE ABSOLUTELY SURE $1 HAS NOTHING YOU WANT ON IT, TYPE \"please destroy $1\""
+	read answer
+	if [ "$answer" != "please destroy $1" ]; then
+		echo "Aborting."
+		exit 1
+	fi
+}
+
+checkParams "$@"
+checkSafe "$1"
+echo "starting test..."
+
