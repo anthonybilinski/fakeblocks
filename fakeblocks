@@ -55,7 +55,7 @@ function checkSafe {
 	echo "IF YOU ARE ABSOLUTELY SURE $1 HAS NOTHING YOU WANT ON IT, TYPE \"please destroy all data on $1\""
 	read answer
 	if [ "$answer" != "please destroy all data on $1" ]; then
-		echo "Aborting."
+		echo "Answer does not match, exiting."
 		exit 1
 	fi
 }
@@ -75,11 +75,8 @@ function randomTest {
 	if [ $? -ne 0 ]; then
 		fail
 	fi
+	rm "$tmpFileName"
 	echo "test successful, continuing"
-}
-
-function bufferTest {
-	echo "not yet implemented"
 }
 
 function iterateTest {
@@ -100,7 +97,6 @@ function iterateTest {
 }
 
 function fail {
-	#TODO: delete /tmp/fakeblock-test-data on any exit, including signals
 	echo "Comparison failed. This device has bad blocks :("
 	echo "Go get yourself a refund and leave some bad feedback."
 	exit 1
@@ -108,6 +104,7 @@ function fail {
 
 checkParams "$@"
 checkSafe "$1"
+trap "rm  /tmp/fakeblocks-*" EXIT
 iterateTest "$1"
 echo "Your disk doesn't look fake. Calling badblocks to verify every bit of the drive. This will take a long time."
 badblocks -swv "$1"
