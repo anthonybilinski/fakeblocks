@@ -89,7 +89,7 @@ function iterateTest {
 		echo "Your disk reports itself as $MiB""MiB"
 	fi
 	testSizeMiB=1
-	while [ $testSizeMiB -le $(( $MiB / 10 )) ]; do
+	while [ $testSizeMiB -le $MiB ]; do
 		randomNumber=$(od -N 4 -t uL -An /dev/urandom | tr -d " ")
 		randomStartPos=$(( $randomNumber % $(( $MiB - $testSizeMiB )) ))
 		randomTest "$1" $randomStartPos $testSizeMiB

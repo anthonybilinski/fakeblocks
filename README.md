@@ -9,7 +9,7 @@ fakeblocks is easy to use and automatically tests small portions of the device u
 ### performance
 __best case__: You test __1MB instead of 2TB__ of a very slow 500GB SD card. This is not uncommon for cheap large capacity storage bought online. This saves you days of test time.
 
-__worst case__: You test 11GB extra ontop of your 2TB badblocks test (4-pass on a 500GB drive), for a __0.55% overhead__.
+__worst case__: You test 111GB extra ontop of your 2TB badblocks test (4-pass on a 500GB drive), for a __5% overhead__.
 
 ### reliability
 fakeblocks tests a very small portion of the storage in a way that still catches most fake storage. This is not completely reliable for fake storage, and is not at all reliable for naturally damaged storage, which is why fakeblocks falls back to badblocks if fakeblocks doesn't find any problems. fakeblocks is no less reliable than badblocks because of this.
